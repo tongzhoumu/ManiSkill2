@@ -204,3 +204,40 @@ class LiftCubeEnv(PickCubeEnv):
             reward += lifting_reward
 
         return reward
+
+@register_env("LiftCube-v1", max_episode_steps=200)
+class LiftCubeEnv_v1(LiftCubeEnv):
+    # better reward
+    def compute_dense_reward(self, info, **kwargs):
+        reward = 0.0
+
+        if info["success"]:
+            reward += 5 # this should be larger than 2.25, otherwise robot will not learn to be static
+            return reward
+
+        # reaching reward
+        gripper_pos = self.tcp.get_pose().p
+        obj_pos = self.obj.get_pose().p
+        dist = np.linalg.norm(gripper_pos - obj_pos)
+        reaching_reward = 1 - np.tanh(5 * dist)
+        reward += reaching_reward
+
+        is_grasped = self.agent.check_grasp(self.obj)
+
+        # grasp reward
+        if is_grasped:
+            reward += 1
+
+        # lifting reward
+        if is_grasped:
+            lifting_reward = self.obj.pose.p[2] - self.cube_half_size[2]
+            lifting_reward = min(lifting_reward / self.goal_height, 1.0)
+            reward += lifting_reward
+
+            # static reward
+            if self.check_obj_placed():
+                qvel = self.agent.robot.get_qvel()[:-2]
+                static_reward = 1 - np.tanh(5 * np.linalg.norm(qvel))
+                reward += static_reward
+
+        return reward

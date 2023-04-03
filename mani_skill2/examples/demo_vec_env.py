@@ -63,7 +63,8 @@ def main():
         # env.reset(indices=[j for j in range(args.n_envs) if j % 2 == i % 2])
 
         for t in range(l_ep):
-            action = [env.action_space.sample() for _ in range(args.n_envs)]
+            # action = [env.action_space.sample() for _ in range(args.n_envs)]
+            action = np.zeros((args.n_envs, 8))
             obs, reward, info, done = env.step(action)
             # print(t, reward, info, done)
 
