@@ -274,3 +274,137 @@ class PegInsertionSideEnv(StationaryManipulationEnv):
         # NOTE(xuanlin): This way is specific to how we compute goals.
         # The general way is to handle variables explicitly
         self._initialize_task()
+
+@register_env("PegInsertionSideFixed-v0", max_episode_steps=200)
+class PegInsertionSideEnv_fixed(PegInsertionSideEnv):
+    def _load_actors(self):
+        self._add_ground(render=self.bg_name is None)
+
+        # peg
+        length, radius = 0.1, 0.02
+        builder = self._scene.create_actor_builder()
+        builder.add_box_collision(half_size=[length, radius, radius])
+
+        # peg head
+        mat = self._renderer.create_material()
+        mat.set_base_color(hex2rgba("#EC7357"))
+        mat.metallic = 0.0
+        mat.roughness = 0.5
+        mat.specular = 0.5
+        builder.add_box_visual(
+            Pose([length / 2, 0, 0]),
+            half_size=[length / 2, radius, radius],
+            material=mat,
+        )
+
+        # peg tail
+        mat = self._renderer.create_material()
+        mat.set_base_color(hex2rgba("#EDF6F9"))
+        mat.metallic = 0.0
+        mat.roughness = 0.5
+        mat.specular = 0.5
+        builder.add_box_visual(
+            Pose([-length / 2, 0, 0]),
+            half_size=[length / 2, radius, radius],
+            material=mat,
+        )
+
+        self.peg = builder.build("peg")
+        self.peg_head_offset = Pose([length, 0, 0])
+        self.peg_half_size = np.float32([length, radius, radius])
+
+        # box with hole
+        center = np.zeros(2)
+        inner_radius, outer_radius, depth = radius + self._clearance, length, length
+        self.box = self._build_box_with_hole(
+            inner_radius, outer_radius, depth, center=center
+        )
+        self.box_hole_offset = Pose(np.hstack([0, center]))
+        self.box_hole_radius = inner_radius
+
+    def _initialize_actors(self):
+        xy = np.array([0, -0.15])
+        pos = np.hstack([xy, self.peg_half_size[2]])
+        ori = np.pi / 2
+        quat = euler2quat(0, 0, ori)
+        self.peg.set_pose(Pose(pos, quat))
+
+        xy = np.array([0, 0.3])
+        pos = np.hstack([xy, self.peg_half_size[0]])
+        ori = np.pi / 2
+        quat = euler2quat(0, 0, ori)
+        self.box.set_pose(Pose(pos, quat))
+
+
+@register_env("PegInsertionSideFixed_simple_rew-v0", max_episode_steps=200)
+class PegInsertionSideEnv_fixed_simple_rew(PegInsertionSideEnv_fixed):
+    def compute_dense_reward(self, info, **kwargs):
+        reward = 0.0
+
+        if info["success"]:
+            reward = 5.25 + 1
+        else:
+            # reaching reward
+            gripper_pos = self.tcp.get_pose().p
+            peg_pos = self.peg.get_pose().p
+            gripper_to_peg_dist = np.linalg.norm(gripper_pos - peg_pos)
+            reaching_reward = 1 - np.tanh(10.0 * gripper_to_peg_dist)
+            reward += reaching_reward
+
+            # grasp reward
+            is_grasped = self.agent.check_grasp(self.peg)
+            if is_grasped:
+                reward += 0.25
+
+            # insertion reward
+            if is_grasped:
+                peg_head_pose = self.peg.pose.transform(self.peg_head_offset)
+                box_hole_pose = self.box_hole_pose
+                peg_head_pos_at_hole = (box_hole_pose.inv() * peg_head_pose).p
+
+                insertion_reward = 1 + np.tanh(10.0 * (peg_head_pos_at_hole[0] + 0.015)) # (0, 2)
+                align_reward_y = 1 - np.tanh(10.0 * abs(peg_head_pos_at_hole[1])) # (0, 1)
+                align_reward_z = 1 - np.tanh(10.0 * abs(peg_head_pos_at_hole[2])) # (0, 1) 
+                
+                reward += insertion_reward + align_reward_y + align_reward_z
+
+        return reward
+    
+@register_env("PegInsertionSideFixed_peg_ori-v0", max_episode_steps=200)
+class PegInsertionSideEnv_fixed_peg_ori(PegInsertionSideEnv_fixed):
+    def compute_dense_reward(self, info, **kwargs):
+        reward = 0.0
+
+        if info["success"]:
+            reward = 7.25 + 1
+        else:
+            # reaching reward
+            gripper_pos = self.tcp.get_pose().p
+            peg_pos = self.peg.get_pose().p
+            gripper_to_peg_dist = np.linalg.norm(gripper_pos - peg_pos)
+            reaching_reward = 1 - np.tanh(10.0 * gripper_to_peg_dist)
+            reward += reaching_reward
+
+            # grasp reward
+            is_grasped = self.agent.check_grasp(self.peg)
+            if is_grasped:
+                reward += 0.25
+
+            # insertion reward
+            if is_grasped:
+                peg_head_pose = self.peg.pose.transform(self.peg_head_offset)
+                box_hole_pose = self.box_hole_pose
+                peg_head_pos_at_hole = (box_hole_pose.inv() * peg_head_pose).p
+
+                insertion_reward = 1 + np.tanh(10.0 * (peg_head_pos_at_hole[0] + 0.015)) # (0, 2)
+                align_reward_y = 1 - np.tanh(10.0 * abs(peg_head_pos_at_hole[1])) # (0, 1)
+                align_reward_z = 1 - np.tanh(10.0 * abs(peg_head_pos_at_hole[2])) # (0, 1) 
+                
+                reward += insertion_reward + align_reward_y + align_reward_z
+
+                peg_axis = self.peg.pose.transform(Pose([0,0,1])).p - self.peg.pose.p
+                hole_axis = box_hole_pose.transform(Pose([0,0,1])).p - box_hole_pose.p
+                cos = abs(np.dot(hole_axis, peg_axis) / np.linalg.norm(peg_axis) / np.linalg.norm(hole_axis)) # (0, 1)
+                reward += cos * 2
+
+        return reward
