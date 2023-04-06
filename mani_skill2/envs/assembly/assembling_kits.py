@@ -231,3 +231,30 @@ class AssemblingKitsEnv(StationaryManipulationEnv):
         cam_cfg = super()._register_render_cameras()
         cam_cfg.pose = look_at([0.3, 0.3, 0.8], [0.0, 0.0, 0.1])
         return cam_cfg
+
+@register_env("AssemblingKitsExtra-v0", max_episode_steps=200)
+class AssemblingKitsEnv_extra(AssemblingKitsEnv):
+    def _initialize_task(self):
+        self._obj_init_pos = np.float32(self.spawn_pos)
+        self._obj_goal_pos = np.float32(self.objects_pos[self.object_id])
+        rot = self.objects_rot[self.object_id]
+        self._obj_goal_rot = np.array([np.sin(rot), np.cos(rot)], dtype=np.float32)
+
+    def _get_obs_extra(self):
+        obs = dict(
+            tcp_pose=vectorize_pose(self.tcp.pose),
+            obj_init_pos=self._obj_init_pos,
+            obj_goal_pos=self._obj_goal_pos,
+            obj_goal_rot=self._obj_goal_rot,
+        )
+        if self._obs_mode in ["state", "state_dict"]:
+            rot_diff, _ = self._check_rot_diff()
+            rot = quat2euler(self.obj.get_pose().q)[-1]  # Check z-axis rotation
+            obs.update(
+                obj_pose=vectorize_pose(self.obj.pose),
+                tcp_to_obj_pos=self.obj.pose.p - self.tcp.pose.p,
+                obj_to_goal_pos=self.objects_pos[self.object_id] - self.obj.pose.p,
+                rot_diff=rot_diff,
+                obj_rot=np.array([np.sin(rot), np.cos(rot)], dtype=np.float32),
+            )
+        return obs
