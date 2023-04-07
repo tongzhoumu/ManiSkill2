@@ -303,3 +303,41 @@ class PlugChargerEnv(StationaryManipulationEnv):
     def set_state(self, state):
         super().set_state(state)
         self.goal_pose = self.receptacle.pose.transform(Pose(q=euler2quat(0, 0, np.pi)))
+
+
+@register_env("PlugCharger_peg_rew-v0", max_episode_steps=200)
+class PlugChargerEnv_peg_rew(PlugChargerEnv):
+    def compute_dense_reward(self, info, **kwargs):
+        reward = 0.0
+
+        if info["success"]:
+            reward = 7.25 + 1
+        else:
+            # reaching reward
+            gripper_pos = self.tcp.pose.p
+            obj_pos = self.charger.pose.p
+            gripper_to_obj_dist = np.linalg.norm(gripper_pos - obj_pos)
+            reaching_reward = 1 - np.tanh(10.0 * gripper_to_obj_dist)
+            reward += reaching_reward
+
+            # grasp reward
+            is_grasped = self.agent.check_grasp(self.charger)
+            if is_grasped:
+                reward += 0.25
+
+            # insertion reward
+            if is_grasped:
+                charger_pos_at_hole = (self.goal_pose.inv() * self.charger.pose).p
+
+                insertion_reward = 1 - np.tanh(10.0 * abs(charger_pos_at_hole[0])) # (0, 1)
+                align_reward_y = 1 - np.tanh(10.0 * abs(charger_pos_at_hole[1])) # (0, 1)
+                align_reward_z = 1 - np.tanh(10.0 * abs(charger_pos_at_hole[2])) # (0, 1) 
+                
+                reward += insertion_reward + align_reward_y + align_reward_z
+
+                charger_axis = self.charger.pose.transform(Pose([1,0,0])).p - self.charger.pose.p
+                hole_axis = self.goal_pose.transform(Pose([1,0,0])).p - self.goal_pose.p
+                cos = np.dot(hole_axis, charger_axis) / np.linalg.norm(charger_axis) / np.linalg.norm(hole_axis) # (0, 1)
+                reward += cos * 2
+
+        return reward
