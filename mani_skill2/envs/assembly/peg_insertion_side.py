@@ -57,6 +57,8 @@ class PegInsertionSideEnv(StationaryManipulationEnv):
         # length, radius = 0.1, 0.02
         length = self._episode_rng.uniform(0.075, 0.125)
         radius = self._episode_rng.uniform(0.015, 0.025)
+        self.peg_half_length = length
+        self.peg_radius = radius
         builder = self._scene.create_actor_builder()
         builder.add_box_collision(half_size=[length, radius, radius])
 
@@ -282,6 +284,8 @@ class PegInsertionSideEnv_fixed(PegInsertionSideEnv):
 
         # peg
         length, radius = 0.1, 0.02
+        self.peg_half_length = length
+        self.peg_radius = radius
         builder = self._scene.create_actor_builder()
         builder.add_box_collision(half_size=[length, radius, radius])
 
@@ -450,6 +454,47 @@ class PegInsertionSideEnv_fixed_grasp_offset(PegInsertionSideEnv_fixed):
 
         return reward
     
+@register_env("PegInsertionSideFixed_grasp_2-v0", max_episode_steps=200)
+class PegInsertionSideEnv_fixed_grasp_2(PegInsertionSideEnv_fixed):
+    
+    def compute_dense_reward(self, info, **kwargs):
+        reward = 0.0
+
+        if info["success"]:
+            reward = 7.25 + 1
+        else:
+            # reaching reward
+            gripper_pos = self.tcp.pose.p
+            peg_head_pose = self.peg.pose.transform(self.peg_head_offset)
+            head_pos, center_pos = peg_head_pose.p, self.peg.pose.p
+            grasp_pos = center_pos - (head_pos - center_pos) * ((0.015+self.peg_radius)/self.peg_half_length) # hack a grasp point
+            gripper_to_peg_dist = np.linalg.norm(gripper_pos - grasp_pos)
+            reaching_reward = 1 - np.tanh(10.0 * gripper_to_peg_dist)
+            reward += reaching_reward
+
+            # grasp reward
+            is_grasped = self.agent.check_grasp(self.peg) and (gripper_to_peg_dist < self.peg_radius * 0.9)
+            if is_grasped:
+                reward += 0.25
+
+            # insertion reward
+            if is_grasped:
+                box_hole_pose = self.box_hole_pose
+                peg_head_pos_at_hole = (box_hole_pose.inv() * peg_head_pose).p
+
+                insertion_reward = 1 + np.tanh(10.0 * (peg_head_pos_at_hole[0] + 0.015)) # (0, 2)
+                align_reward_y = 1 - np.tanh(10.0 * abs(peg_head_pos_at_hole[1])) # (0, 1)
+                align_reward_z = 1 - np.tanh(10.0 * abs(peg_head_pos_at_hole[2])) # (0, 1) 
+                
+                reward += insertion_reward + align_reward_y + align_reward_z
+
+                peg_axis = self.peg.pose.transform(Pose([0,0,1])).p - self.peg.pose.p
+                hole_axis = box_hole_pose.transform(Pose([0,0,1])).p - box_hole_pose.p
+                cos = abs(np.dot(hole_axis, peg_axis) / np.linalg.norm(peg_axis) / np.linalg.norm(hole_axis)) # (0, 1)
+                reward += cos * 2
+
+        return reward
+
 @register_env("PegInsertionSide-v1", max_episode_steps=200)
 class PegInsertionSideEnv_v1(PegInsertionSideEnv):
     
