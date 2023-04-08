@@ -152,6 +152,14 @@ class PickCubeEnv_v1(PickCubeEnv):
 
         return reward
 
+@register_env("PickCube-v2", max_episode_steps=100)
+class PickCubeEnv_v2(PickCubeEnv_v1):
+    # obs with is_grasp
+    def _get_obs_extra(self) -> OrderedDict:
+        ret = super()._get_obs_extra()
+        ret['is_grasped'] = float(self.agent.check_grasp(self.obj))
+        return ret
+
 
 @register_env("LiftCube-v0", max_episode_steps=200)
 class LiftCubeEnv(PickCubeEnv):

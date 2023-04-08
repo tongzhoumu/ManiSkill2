@@ -505,16 +505,16 @@ class PegInsertionSideEnv_v1(PegInsertionSideEnv):
             reward = 7.25 + 1
         else:
             # reaching reward
-            gripper_pos = self.tcp.get_pose().p
+            gripper_pos = self.tcp.pose.p
             peg_head_pose = self.peg.pose.transform(self.peg_head_offset)
             head_pos, center_pos = peg_head_pose.p, self.peg.pose.p
-            grasp_pos = center_pos - (head_pos - center_pos) / 6 # grasp at 1/3 of the peg
+            grasp_pos = center_pos - (head_pos - center_pos) * ((0.015+self.peg_radius)/self.peg_half_length) # hack a grasp point
             gripper_to_peg_dist = np.linalg.norm(gripper_pos - grasp_pos)
             reaching_reward = 1 - np.tanh(10.0 * gripper_to_peg_dist)
             reward += reaching_reward
 
             # grasp reward
-            is_grasped = self.agent.check_grasp(self.peg)
+            is_grasped = self.agent.check_grasp(self.peg) and (gripper_to_peg_dist < self.peg_radius * 0.9)
             if is_grasped:
                 reward += 0.25
 
