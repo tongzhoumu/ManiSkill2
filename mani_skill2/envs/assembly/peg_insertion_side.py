@@ -488,9 +488,9 @@ class PegInsertionSideEnv_fixed_grasp_2(PegInsertionSideEnv_fixed):
                 
                 reward += insertion_reward + align_reward_y + align_reward_z
 
-                peg_axis = self.peg.pose.transform(Pose([0,0,1])).p - self.peg.pose.p
-                hole_axis = box_hole_pose.transform(Pose([0,0,1])).p - box_hole_pose.p
-                cos = abs(np.dot(hole_axis, peg_axis) / np.linalg.norm(peg_axis) / np.linalg.norm(hole_axis)) # (0, 1)
+                peg_normal = self.peg.pose.transform(Pose([0,0,1])).p - self.peg.pose.p
+                hole_normal = box_hole_pose.transform(Pose([0,0,1])).p - box_hole_pose.p
+                cos = abs(np.dot(hole_normal, peg_normal) / np.linalg.norm(peg_normal) / np.linalg.norm(hole_normal)) # (0, 1)
                 reward += cos * 2
 
         return reward
@@ -531,8 +531,55 @@ class PegInsertionSideEnv_fixed_axis(PegInsertionSideEnv_fixed):
 
                 peg_axis = self.peg.pose.transform(Pose([1,0,0])).p - self.peg.pose.p
                 hole_axis = box_hole_pose.transform(Pose([1,0,0])).p - box_hole_pose.p
-                cos = abs(np.dot(hole_axis, peg_axis) / np.linalg.norm(peg_axis) / np.linalg.norm(hole_axis)) # (0, 1)
-                reward += cos * 2
+                cos_axis = abs(np.dot(hole_axis, peg_axis) / np.linalg.norm(peg_axis) / np.linalg.norm(hole_axis)) # (0, 1)
+                reward += cos_axis *2
+
+        return reward
+
+
+@register_env("PegInsertionSideFixed_2cos-v0", max_episode_steps=200)
+class PegInsertionSideEnv_fixed_2cos(PegInsertionSideEnv_fixed):
+    
+    def compute_dense_reward(self, info, **kwargs):
+        reward = 0.0
+
+        if info["success"]:
+            reward = 7.25 + 1
+        else:
+            # reaching reward
+            gripper_pos = self.tcp.pose.p
+            peg_head_pose = self.peg.pose.transform(self.peg_head_offset)
+            head_pos, center_pos = peg_head_pose.p, self.peg.pose.p
+            grasp_pos = center_pos - (head_pos - center_pos) * ((0.015+self.peg_radius)/self.peg_half_length) # hack a grasp point
+            gripper_to_peg_dist = np.linalg.norm(gripper_pos - grasp_pos)
+            reaching_reward = 1 - np.tanh(10.0 * gripper_to_peg_dist)
+            reward += reaching_reward
+
+            # grasp reward
+            is_grasped = self.agent.check_grasp(self.peg) and (gripper_to_peg_dist < self.peg_radius * 0.9)
+            if is_grasped:
+                reward += 0.25
+
+            # insertion reward
+            if is_grasped:
+                box_hole_pose = self.box_hole_pose
+                peg_head_pos_at_hole = (box_hole_pose.inv() * peg_head_pose).p
+
+                insertion_reward = 1 + np.tanh(5.0 * (peg_head_pos_at_hole[0] + 0.015)) # (0, 2)
+                align_reward_y = 1 - np.tanh(10.0 * abs(peg_head_pos_at_hole[1])) # (0, 1)
+                align_reward_z = 1 - np.tanh(10.0 * abs(peg_head_pos_at_hole[2])) # (0, 1) 
+                
+                reward += insertion_reward + align_reward_y + align_reward_z
+
+                peg_normal = self.peg.pose.transform(Pose([0,0,1])).p - self.peg.pose.p
+                hole_normal = box_hole_pose.transform(Pose([0,0,1])).p - box_hole_pose.p
+                cos_normal = abs(np.dot(hole_normal, peg_normal) / np.linalg.norm(peg_normal) / np.linalg.norm(hole_normal)) # (0, 1)
+                reward += cos_normal
+
+                peg_axis = self.peg.pose.transform(Pose([1,0,0])).p - self.peg.pose.p
+                hole_axis = box_hole_pose.transform(Pose([1,0,0])).p - box_hole_pose.p
+                cos_axis = abs(np.dot(hole_axis, peg_axis) / np.linalg.norm(peg_axis) / np.linalg.norm(hole_axis)) # (0, 1)
+                reward += cos_axis
 
         return reward
 
@@ -570,9 +617,9 @@ class PegInsertionSideEnv_v1(PegInsertionSideEnv):
                 
                 reward += insertion_reward + align_reward_y + align_reward_z
 
-                peg_axis = self.peg.pose.transform(Pose([0,0,1])).p - self.peg.pose.p
-                hole_axis = box_hole_pose.transform(Pose([0,0,1])).p - box_hole_pose.p
-                cos = abs(np.dot(hole_axis, peg_axis) / np.linalg.norm(peg_axis) / np.linalg.norm(hole_axis)) # (0, 1)
+                peg_normal = self.peg.pose.transform(Pose([0,0,1])).p - self.peg.pose.p
+                hole_normal = box_hole_pose.transform(Pose([0,0,1])).p - box_hole_pose.p
+                cos = abs(np.dot(hole_normal, peg_normal) / np.linalg.norm(peg_normal) / np.linalg.norm(hole_normal)) # (0, 1)
                 reward += cos * 2
 
         return reward
