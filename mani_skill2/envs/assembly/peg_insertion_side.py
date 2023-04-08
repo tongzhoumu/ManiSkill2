@@ -611,7 +611,7 @@ class PegInsertionSideEnv_v1(PegInsertionSideEnv):
                 box_hole_pose = self.box_hole_pose
                 peg_head_pos_at_hole = (box_hole_pose.inv() * peg_head_pose).p
 
-                insertion_reward = 1 + np.tanh(10.0 * (peg_head_pos_at_hole[0] + 0.015)) # (0, 2)
+                insertion_reward = 1 + np.tanh(5.0 * (peg_head_pos_at_hole[0] + 0.015)) # (0, 2)
                 align_reward_y = 1 - np.tanh(10.0 * abs(peg_head_pos_at_hole[1])) # (0, 1)
                 align_reward_z = 1 - np.tanh(10.0 * abs(peg_head_pos_at_hole[2])) # (0, 1) 
                 
@@ -619,7 +619,12 @@ class PegInsertionSideEnv_v1(PegInsertionSideEnv):
 
                 peg_normal = self.peg.pose.transform(Pose([0,0,1])).p - self.peg.pose.p
                 hole_normal = box_hole_pose.transform(Pose([0,0,1])).p - box_hole_pose.p
-                cos = abs(np.dot(hole_normal, peg_normal) / np.linalg.norm(peg_normal) / np.linalg.norm(hole_normal)) # (0, 1)
-                reward += cos * 2
+                cos_normal = abs(np.dot(hole_normal, peg_normal) / np.linalg.norm(peg_normal) / np.linalg.norm(hole_normal)) # (0, 1)
+                reward += cos_normal
+
+                peg_axis = self.peg.pose.transform(Pose([1,0,0])).p - self.peg.pose.p
+                hole_axis = box_hole_pose.transform(Pose([1,0,0])).p - box_hole_pose.p
+                cos_axis = abs(np.dot(hole_axis, peg_axis) / np.linalg.norm(peg_axis) / np.linalg.norm(hole_axis)) # (0, 1)
+                reward += cos_axis
 
         return reward
