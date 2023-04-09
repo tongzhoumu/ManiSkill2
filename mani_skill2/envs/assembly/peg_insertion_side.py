@@ -658,11 +658,11 @@ class PegInsertionSideEnv_v1(PegInsertionSideEnv):
                 box_hole_pose = self.box_hole_pose
                 peg_head_pos_at_hole = (box_hole_pose.inv() * peg_head_pose).p
 
-                insertion_reward = 1 + np.tanh(5.0 * (peg_head_pos_at_hole[0] + 0.015)) # (0, 2)
+                insertion_reward = 1 - np.tanh(5.0 * abs(self.peg_half_length - peg_head_pos_at_hole[0])) # (0, 1)
                 align_reward_y = 1 - np.tanh(10.0 * abs(peg_head_pos_at_hole[1])) # (0, 1)
                 align_reward_z = 1 - np.tanh(10.0 * abs(peg_head_pos_at_hole[2])) # (0, 1) 
                 
-                reward += insertion_reward + align_reward_y + align_reward_z
+                reward += insertion_reward * 2 + align_reward_y + align_reward_z
 
                 peg_normal = self.peg.pose.transform(Pose([0,0,1])).p - self.peg.pose.p
                 hole_normal = box_hole_pose.transform(Pose([0,0,1])).p - box_hole_pose.p
