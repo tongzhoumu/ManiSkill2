@@ -264,6 +264,6 @@ class StackCubeEnv_v1(StackCubeEnv):
         else:
             reward = 2 + self.reaching_reward()
 
-        reward = reward - 9.0
+        # reward = reward - 9.0
 
         return reward
