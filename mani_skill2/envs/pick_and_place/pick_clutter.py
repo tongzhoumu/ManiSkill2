@@ -196,15 +196,16 @@ class PickClutterEnv(StationaryManipulationEnv):
         reward = 0.0
 
         if info["success"]:
-            reward = 10.0
+            reward = 12.0
         else:
+        
             obj_pose = self.obj_pose
 
             # reaching reward
             tcp_wrt_obj_pose = obj_pose.inv() * self.tcp.pose
             tcp_to_obj_dist = np.linalg.norm(tcp_wrt_obj_pose.p)
-            reaching_reward = 1 - np.tanh(
-                3.0 * np.maximum(tcp_to_obj_dist - np.linalg.norm(self.bbox_size), 0.0)
+            reaching_reward = 3.0 - np.tanh(
+                3.0*tcp_to_obj_dist
             )
             reward = reward + reaching_reward
 
@@ -216,7 +217,7 @@ class PickClutterEnv(StationaryManipulationEnv):
             if is_grasped:
                 obj_to_goal_pos = self.goal_pos - obj_pose.p
                 obj_to_goal_dist = np.linalg.norm(obj_to_goal_pos)
-                reaching_goal_reward = 3 * (1 - np.tanh(3.0 * obj_to_goal_dist))
+                reaching_goal_reward = 3.0*(1- np.tanh(3.0 * obj_to_goal_dist))
                 reward += reaching_goal_reward
 
         return reward
