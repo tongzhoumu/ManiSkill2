@@ -265,3 +265,36 @@ class PickClutterYCBEnv(PickClutterEnv):
         obj.name = model_id
         obj.set_damping(0.1, 0.1)
         return obj
+
+@register_env("PickClutterYCB-v1", max_episode_steps=200)
+class PickClutterYCBEnv_v1(PickClutterYCBEnv):
+    # xiu's reward
+    def compute_dense_reward(self, info, **kwargs):
+        reward = 0.0
+
+        if info["success"]:
+            reward = 12.0
+        else:
+        
+            obj_pose = self.obj_pose
+
+            # reaching reward
+            tcp_wrt_obj_pose = obj_pose.inv() * self.tcp.pose
+            tcp_to_obj_dist = np.linalg.norm(tcp_wrt_obj_pose.p)
+            reaching_reward = 3.0 - np.tanh(
+                3.0*tcp_to_obj_dist
+            )
+            reward = reward + reaching_reward
+
+            # grasp reward
+            is_grasped = self.agent.check_grasp(self.obj, max_angle=60)
+            reward += 3.0 if is_grasped else 0.0
+
+            # reaching-goal reward
+            if is_grasped:
+                obj_to_goal_pos = self.goal_pos - obj_pose.p
+                obj_to_goal_dist = np.linalg.norm(obj_to_goal_pos)
+                reaching_goal_reward = 3.0*(1- np.tanh(3.0 * obj_to_goal_dist))
+                reward += reaching_goal_reward
+
+        return reward
