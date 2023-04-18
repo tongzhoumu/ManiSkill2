@@ -425,7 +425,10 @@ def stack_obs(obs: Sequence, space: spaces.Space, buffer: Optional[np.ndarray] =
             ret[key] = stack_obs(_obs, space[key], buffer=_buffer)
         return ret
     elif isinstance(space, spaces.Box):
-        return np.stack(obs, out=buffer)
+        if buffer.shape[1] == 1:
+            buffer[:, 0] = obs
+        else:
+            return np.stack(obs, out=buffer)
     else:
         raise NotImplementedError(type(space))
 
