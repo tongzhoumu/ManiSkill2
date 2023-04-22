@@ -440,6 +440,7 @@ def _main(args, proc_id: int = 0, num_procs=1, pbar=None):
                         env.render()
                     if args.use_env_states:
                         env.set_state(ori_env_states[t])
+                info.update(env.evaluate())
 
             # From joint position to others
             elif ori_control_mode == "pd_joint_pos":
