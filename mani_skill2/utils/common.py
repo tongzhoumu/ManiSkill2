@@ -185,7 +185,10 @@ def flatten_state_dict(state_dict: dict) -> np.ndarray:
     if len(states) == 0:
         return np.empty(0)
     else:
-        return np.hstack(states)
+        try:
+            return np.hstack(states)
+        except: # dirty fix for concat trajectory of states
+            return np.column_stack(states)
 
 
 def flatten_dict_keys(d: dict, prefix=""):
