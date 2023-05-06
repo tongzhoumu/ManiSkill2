@@ -356,3 +356,58 @@ class PushChairEnv(MS1BaseEnv):
     def set_state(self, state: np.ndarray):
         super().set_state(state)
         self._prev_actor_pose = self.root_link.pose
+
+from collections import OrderedDict
+from mani_skill2.utils.sapien_utils import vectorize_pose
+@register_env("PushChair_unified-v1", max_episode_steps=200)
+class PushChairEnv_unified(PushChairEnv):
+    @staticmethod
+    def _check_link_types(link: sapien.LinkBase):
+        link_types = []
+        for visual_body in link.get_visual_bodies():
+            name = visual_body.name
+            if "wheel" in name:
+                link_types.append("wheel")
+            if "seat" in name:
+                link_types.append("seat")
+            if "leg" in name or "foot" in name:
+                link_types.append("support")
+            if "back" in name:
+                link_types.append("back")
+        return link_types
+
+    def _set_chair_links(self):
+        chair_links = self.chair.get_links()
+
+        # Infer link types
+        self.root_link = chair_links[0]
+        self.wheel_links = []
+        self.seat_link = None
+        self.support_link = None
+        self.back_link = None
+        for link in chair_links:
+            link_types = self._check_link_types(link)
+            if "wheel" in link_types:
+                self.wheel_links.append(link)
+            if "seat" in link_types:
+                assert self.seat_link is None, (self.seat_link, link)
+                self.seat_link = link
+            if "support" in link_types:
+                assert self.support_link is None, (self.support_link, link)
+                self.support_link = link
+            if "back" in link_types:
+                assert self.back_link is None, (self.back_link, link)
+                self.back_link = link
+
+        # Set the physical material for wheels
+        wheel_material = self._scene.create_physical_material(
+            static_friction=1, dynamic_friction=1, restitution=0
+        )
+        for link in self.wheel_links:
+            for s in link.get_collision_shapes():
+                s.set_physical_material(wheel_material)
+
+    def _get_obs_priviledged(self):
+        return OrderedDict(
+            seat=vectorize_pose(self.back_link.pose),
+        )
