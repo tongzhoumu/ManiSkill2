@@ -408,3 +408,13 @@ class MoveBucketEnv(MS1BaseEnv):
     def set_state(self, state: np.ndarray):
         super().set_state(state)
         self._prev_actor_pose = self.bucket.pose
+
+from collections import OrderedDict
+from mani_skill2.utils.sapien_utils import vectorize_pose
+@register_env("MoveBucket_unified-v1", max_episode_steps=200)
+class MoveBucketEnv_unified(MoveBucketEnv):
+    def _get_obs_priviledged(self):
+        return OrderedDict(
+            ball=self.balls[0].pose.p,
+            bucket=vectorize_pose(self.bucket_body_link.pose),
+        )
