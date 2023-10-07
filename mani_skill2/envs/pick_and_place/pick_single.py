@@ -503,6 +503,9 @@ class PickSingleYCBEnv_v1(PickSingleYCBEnv):
 
         return reward
 
+@register_env("PickSingleYCB_1-v1", max_episode_steps=200)
+class PickSingleYCBEnv_v1_1(PickSingleYCBEnv_v1):
+    DEFAULT_MODEL_JSON = "info_pick_v0_1.json"
 
 # ---------------------------------------------------------------------------- #
 # EGAD
