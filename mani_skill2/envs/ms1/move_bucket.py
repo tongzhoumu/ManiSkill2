@@ -15,6 +15,7 @@ from mani_skill2.utils.geometry import (
     transform_points,
 )
 from mani_skill2.utils.registration import register_env
+from mani_skill2.utils.sapien_utils import get_entity_by_name, vectorize_pose
 from mani_skill2.utils.trimesh_utils import get_actor_visual_mesh
 
 from .base_env import MS1BaseEnv
@@ -55,7 +56,7 @@ class MoveBucketEnv(MS1BaseEnv):
         lim[0, 1] -= v
         self.bucket.get_active_joints()[0].set_limits(lim)
 
-        if self._reward_mode == "dense":
+        if self._reward_mode in ["dense", "normalized_dense"]:
             self._set_bucket_links_mesh()
 
     def _set_bucket_links_mesh(self):
@@ -106,6 +107,10 @@ class MoveBucketEnv(MS1BaseEnv):
             self._scene, self._control_freq, self._control_mode, config=self._agent_cfg
         )
 
+        links = self.agent.robot.get_links()
+        self.left_tcp: sapien.Link = get_entity_by_name(links, "left_panda_hand_tcp")
+        self.right_tcp: sapien.Link = get_entity_by_name(links, "right_panda_hand_tcp")
+
     # -------------------------------------------------------------------------- #
     # Reset
     # -------------------------------------------------------------------------- #
@@ -116,7 +121,7 @@ class MoveBucketEnv(MS1BaseEnv):
         self._initialize_bucket()
         self._initialize_robot()
         self._initialize_balls()
-        if self._reward_mode == "dense":
+        if self._reward_mode in ["dense", "normalized_dense"]:
             self._set_bucket_links_pcd()
 
         for _ in range(25):
@@ -395,6 +400,9 @@ class MoveBucketEnv(MS1BaseEnv):
         )
         return reward
 
+    def compute_normalized_dense_reward(self, **kwargs):
+        return self.compute_dense_reward(**kwargs) / 20.0
+
     # ---------------------------------------------------------------------------- #
     # Observation
     # ---------------------------------------------------------------------------- #
@@ -408,6 +416,14 @@ class MoveBucketEnv(MS1BaseEnv):
     def set_state(self, state: np.ndarray):
         super().set_state(state)
         self._prev_actor_pose = self.bucket.pose
+
+    def _get_obs_extra(self):
+        obs = super()._get_obs_extra()
+        if self._obs_mode not in ["state", "state_dict"]:
+            obs["left_tcp_pose"] = vectorize_pose(self.left_tcp.pose)
+            obs["right_tcp_pose"] = vectorize_pose(self.right_tcp.pose)
+        return obs
+
 
 from collections import OrderedDict
 from mani_skill2.utils.sapien_utils import vectorize_pose

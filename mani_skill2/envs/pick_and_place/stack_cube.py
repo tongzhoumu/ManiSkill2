@@ -119,11 +119,11 @@ class StackCubeEnv(StationaryManipulationEnv):
     def evaluate(self, **kwargs):
         is_cubeA_on_cubeB = self._check_cubeA_on_cubeB()
         is_cubeA_static = check_actor_static(self.cubeA)
-        is_cubaA_grasped = self.agent.check_grasp(self.cubeA)
-        success = is_cubeA_on_cubeB and is_cubeA_static and (not is_cubaA_grasped)
+        is_cubeA_grasped = self.agent.check_grasp(self.cubeA)
+        success = is_cubeA_on_cubeB and is_cubeA_static and (not is_cubeA_grasped)
 
         return {
-            "is_cubaA_grasped": is_cubaA_grasped,
+            "is_cubaA_grasped": is_cubeA_grasped,
             "is_cubeA_on_cubeB": is_cubeA_on_cubeB,
             "is_cubeA_static": is_cubeA_static,
             # "cubeA_vel": np.linalg.norm(self.cubeA.velocity),
@@ -219,6 +219,9 @@ class StackCubeEnv(StationaryManipulationEnv):
 
         return reward
 
+    def compute_normalized_dense_reward(self, **kwargs):
+        return self.compute_dense_reward(**kwargs) / 15.0
+
 @register_env("StackCube-v1", max_episode_steps=100)
 class StackCubeEnv_v1(StackCubeEnv):
     def reaching_reward(self):
@@ -263,7 +266,5 @@ class StackCubeEnv_v1(StackCubeEnv):
             reward = 4 + self.place_reward()
         else:
             reward = 2 + self.reaching_reward()
-
-        # reward = reward - 9.0
 
         return reward

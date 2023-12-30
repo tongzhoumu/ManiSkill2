@@ -10,6 +10,7 @@ from mani_skill2.agents.robots.mobile_panda import MobilePandaSingleArm
 from mani_skill2.utils.common import np_random, random_choice
 from mani_skill2.utils.geometry import angle_distance, transform_points
 from mani_skill2.utils.registration import register_env
+from mani_skill2.utils.sapien_utils import get_entity_by_name, vectorize_pose
 from mani_skill2.utils.trimesh_utils import (
     get_articulation_meshes,
     get_visual_body_meshes,
@@ -60,7 +61,7 @@ class OpenCabinetEnv(MS1BaseEnv):
         self._set_cabinet_handles()
         self._ignore_collision()
 
-        if self._reward_mode == "dense":
+        if self._reward_mode in ["dense", "normalized_dense"]:
             # NOTE(jigu): Explicit `set_pose` is needed.
             self.cabinet.set_pose(Pose())
             self._set_cabinet_handles_mesh()
@@ -152,11 +153,16 @@ class OpenCabinetEnv(MS1BaseEnv):
             self._scene, self._control_freq, self._control_mode, config=self._agent_cfg
         )
 
+        links = self.agent.robot.get_links()
+        self.tcp: sapien.Link = get_entity_by_name(links, "right_panda_hand_tcp")
+
     # -------------------------------------------------------------------------- #
     # Reset
     # -------------------------------------------------------------------------- #
-    def reset(self, seed=None, reconfigure=False, model_id=None):
-        return super().reset(seed=seed, reconfigure=reconfigure, model_id=model_id)
+    def reset(self, seed=None, options=None):
+        if options is None:
+            options = dict()
+        return super().reset(seed=seed, options=options)
 
     def _initialize_task(self):
         self._initialize_cabinet()
@@ -243,7 +249,7 @@ class OpenCabinetEnv(MS1BaseEnv):
         self.target_link_pos = cmass_pose.p
 
         # Cache handle point cloud
-        if self._reward_mode == "dense":
+        if self._reward_mode in ["dense", "normalized_dense"]:
             self._set_target_handle_info()
 
     def _set_target_handle_info(self):
@@ -381,6 +387,9 @@ class OpenCabinetEnv(MS1BaseEnv):
         reward += stage_reward
         return reward
 
+    def compute_normalized_dense_reward(self, *args, info: dict, **kwargs):
+        return self.compute_dense_reward(*args, info=info, **kwargs) / 10.0
+
     # -------------------------------------------------------------------------- #
     # Observations
     # -------------------------------------------------------------------------- #
@@ -392,6 +401,7 @@ class OpenCabinetEnv(MS1BaseEnv):
                 target_joint_axis=self.target_joint_axis,
                 target_link_pos=self.target_link_pos,
             )
+            obs["tcp_pose"] = vectorize_pose(self.tcp.pose)
         return obs
 
     def _get_obs_priviledged(self):

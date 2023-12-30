@@ -14,7 +14,7 @@ def read_requirements():
 
 setup(
     name="mani_skill2",
-    version="0.4.2",
+    version="0.5.3",
     description="ManiSkill2: A Unified Benchmark for Generalizable Manipulation Skills",
     long_description=long_description,
     long_description_content_type="text/markdown",
@@ -24,7 +24,7 @@ setup(
         include=["mani_skill2*", "warp_maniskill*"],
         exclude=["warp_maniskill.warp.tests"],
     ),
-    python_requires=">=3.7",
+    python_requires=">=3.8",
     setup_requires=["setuptools>=62.3.0"],
     install_requires=read_requirements(),
     # Glob patterns do not automatically match dotfiles
@@ -40,7 +40,8 @@ setup(
     extras_require={
         "tests": ["pytest", "black", "isort"],
         "docs": [
-            "sphinx",
+            # Note that currently sphinx 7 does not work, so we must use v6.2.1. See https://github.com/kivy/kivy/issues/8230 which tracks this issue. Once fixed we can use a later version
+            "sphinx==6.2.1",
             "sphinx-autobuild",
             "sphinx-rtd-theme",
             # For spelling

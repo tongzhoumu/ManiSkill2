@@ -35,3 +35,8 @@ tmp/
 data/
 demos/
 debug/
+videos/
+
+# testing
+.coverage*
+htmlcov/
