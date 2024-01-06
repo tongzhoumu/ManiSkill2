@@ -426,7 +426,6 @@ class MoveBucketEnv(MS1BaseEnv):
 
 
 from collections import OrderedDict
-from mani_skill2.utils.sapien_utils import vectorize_pose
 @register_env("MoveBucket_unified-v1", max_episode_steps=200)
 class MoveBucketEnv_unified(MoveBucketEnv):
     def _get_obs_priviledged(self):
