@@ -599,3 +599,8 @@ class PickSingleEGADEnv(PickSingleEnv):
         ang_vel = np.linalg.norm(self.obj.angular_velocity)
         if lin_vel > 1e-3 or ang_vel > 1e-2:
             self._settle(0.5)
+
+
+@register_env("PickSingleEGAD-v1", max_episode_steps=200, obj_init_rot=0.2)
+class PickSingleEGADEnv_v1(PickSingleEGADEnv, PickSingleYCBEnv_v1):
+    pass
