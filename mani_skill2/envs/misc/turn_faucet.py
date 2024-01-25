@@ -400,3 +400,26 @@ class TurnFaucetEnv(TurnFaucetBaseEnv):
         self.target_angle = state[-1]
         super().set_state(state[:-1])
         self.last_angle_diff = self.target_angle - self.current_angle
+
+
+@register_env("TurnFaucet_COTPC-v0", max_episode_steps=200)
+class TurnFaucetEnv_COTPC(TurnFaucetEnv):
+    def _get_curr_target_link_pos(self):
+        """
+        Access the current pose of the target link (i.e., the handle of the faucet).
+        """
+        cmass_pose = self.target_link.pose * self.target_link.cmass_local_pose
+        return cmass_pose.p
+
+    def _get_obs_extra(self):
+        obs = OrderedDict(
+            tcp_pose=vectorize_pose(self.tcp.pose),
+            target_angle_diff=self.target_angle_diff,
+            target_joint_axis=self.target_joint_axis,
+            target_link_pos=self.target_link_pos,
+            curr_target_link_pos=self._get_curr_target_link_pos(),  # Added code.
+        )
+        if self._obs_mode in ["state", "state_dict"]:
+            angle_dist = self.target_angle - self.current_angle
+            obs["angle_dist"] = angle_dist
+        return obs
