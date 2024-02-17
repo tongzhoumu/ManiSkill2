@@ -90,6 +90,8 @@ class MS1BaseEnv(BaseEnv):
         _reconfigure = self._set_model(model_id)
         reconfigure = _reconfigure or reconfigure
         options["reconfigure"] = reconfigure
+        self._prev_actor_pose = {}
+        self._actor_static_cache = {}
         return super().reset(seed=self._episode_seed, options=options)
 
     def _set_model(self, model_id):
@@ -159,6 +161,10 @@ class MS1BaseEnv(BaseEnv):
         """Check whether the actor is static by finite difference.
         Note that the angular velocity is normalized by pi due to legacy issues.
         """
+        _actor_static_cache, _elasped_steps = self._actor_static_cache.get(actor.id, (None, -1))
+        if _actor_static_cache is not None and self._elapsed_steps == _elasped_steps:
+            return _actor_static_cache
+
         from mani_skill2.utils.geometry import angle_distance
 
         pose = actor.get_pose()
@@ -169,16 +175,18 @@ class MS1BaseEnv(BaseEnv):
                 np.linalg.norm(actor.get_angular_velocity()) <= max_ang_v
             )
         else:
+            prev_actor_pose = self._prev_actor_pose[actor.id]
             dt = 1.0 / self._control_freq
             flag_v = (max_v is None) or (
-                np.linalg.norm(pose.p - self._prev_actor_pose.p) <= max_v * dt
+                np.linalg.norm(pose.p - prev_actor_pose.p) <= max_v * dt
             )
             flag_ang_v = (max_ang_v is None) or (
-                angle_distance(self._prev_actor_pose, pose) <= max_ang_v * dt
+                angle_distance(prev_actor_pose, pose) <= max_ang_v * dt
             )
 
         # CAUTION: carefully deal with it for MPC
-        self._prev_actor_pose = pose
+        self._prev_actor_pose[actor.id] = pose
+        self._actor_static_cache[actor.id] = (flag_v and flag_ang_v, self._elapsed_steps)
         return flag_v and flag_ang_v
 
     # ---------------------------------------------------------------------------- #
