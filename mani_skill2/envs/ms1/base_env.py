@@ -83,15 +83,13 @@ class MS1BaseEnv(BaseEnv):
     def reset(self, seed=None, options=None):
         if options is None:
             options = dict()
-        self._prev_actor_pose = None
+        self._prev_actor_pose_dict = {}
         self.set_episode_rng(seed)
         model_id = options.pop("model_id", None)
         reconfigure = options.pop("reconfigure", False)
         _reconfigure = self._set_model(model_id)
         reconfigure = _reconfigure or reconfigure
         options["reconfigure"] = reconfigure
-        self._prev_actor_pose = {}
-        self._actor_static_cache = {}
         return super().reset(seed=self._episode_seed, options=options)
 
     def _set_model(self, model_id):
@@ -161,9 +159,6 @@ class MS1BaseEnv(BaseEnv):
         """Check whether the actor is static by finite difference.
         Note that the angular velocity is normalized by pi due to legacy issues.
         """
-        _actor_static_cache, _elasped_steps = self._actor_static_cache.get(actor.id, (None, -1))
-        if _actor_static_cache is not None and self._elapsed_steps == _elasped_steps:
-            return _actor_static_cache
 
         from mani_skill2.utils.geometry import angle_distance
 
@@ -175,7 +170,10 @@ class MS1BaseEnv(BaseEnv):
                 np.linalg.norm(actor.get_angular_velocity()) <= max_ang_v
             )
         else:
-            prev_actor_pose = self._prev_actor_pose[actor.id]
+            prev_actor_pose, prev_step, prev_actor_static = self._prev_actor_pose_dict[actor.id]
+            if prev_step == self._elapsed_steps:
+                return prev_actor_static
+            assert prev_step == self._elapsed_steps - 1, (prev_step, self._elapsed_steps)
             dt = 1.0 / self._control_freq
             flag_v = (max_v is None) or (
                 np.linalg.norm(pose.p - prev_actor_pose.p) <= max_v * dt
@@ -185,9 +183,9 @@ class MS1BaseEnv(BaseEnv):
             )
 
         # CAUTION: carefully deal with it for MPC
-        self._prev_actor_pose[actor.id] = pose
-        self._actor_static_cache[actor.id] = (flag_v and flag_ang_v, self._elapsed_steps)
-        return flag_v and flag_ang_v
+        actor_static = flag_v and flag_ang_v
+        self._prev_actor_pose_dict[actor.id] = (pose, self._elapsed_steps, actor_static)
+        return actor_static
 
     # ---------------------------------------------------------------------------- #
     # Observation
