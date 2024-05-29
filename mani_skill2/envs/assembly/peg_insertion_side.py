@@ -693,7 +693,7 @@ class PegInsertionSideEnv_fixed_success_bug(PegInsertionSideEnv):
         box_hole_pose = self.box_hole_pose
         peg_head_pos_at_hole = (box_hole_pose.inv() * peg_head_pose).p
         # x-axis is hole direction
-        x_flag = 0.015 >= abs(peg_head_pos_at_hole[0])
+        x_flag = (-0.015 <= peg_head_pos_at_hole[0]) and (0.075 >= peg_head_pos_at_hole[0])
         y_flag = (
             -self.box_hole_radius <= peg_head_pos_at_hole[1] <= self.box_hole_radius
         )
