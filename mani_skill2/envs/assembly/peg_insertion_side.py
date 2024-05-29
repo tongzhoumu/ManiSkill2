@@ -682,3 +682,22 @@ class PegInsertionSideEnv_v1(PegInsertionSideEnv):
                 reward += cos_axis
 
         return reward
+    
+
+@register_env("PegInsertionSide-v2", max_episode_steps=200)
+class PegInsertionSideEnv_fixed_success_bug(PegInsertionSideEnv):
+
+    def has_peg_inserted(self):
+        # Only head position is used in fact
+        peg_head_pose = self.peg.pose.transform(self.peg_head_offset)
+        box_hole_pose = self.box_hole_pose
+        peg_head_pos_at_hole = (box_hole_pose.inv() * peg_head_pose).p
+        # x-axis is hole direction
+        x_flag = 0.015 >= abs(peg_head_pos_at_hole[0])
+        y_flag = (
+            -self.box_hole_radius <= peg_head_pos_at_hole[1] <= self.box_hole_radius
+        )
+        z_flag = (
+            -self.box_hole_radius <= peg_head_pos_at_hole[2] <= self.box_hole_radius
+        )
+        return (x_flag and y_flag and z_flag), peg_head_pos_at_hole
